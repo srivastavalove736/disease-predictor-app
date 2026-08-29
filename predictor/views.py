@@ -62,8 +62,8 @@ def load_brain_model():
         except Exception:
             import keras
             from tensorflow.keras.layers import InputLayer
+            from tensorflow.keras.initializers import GlorotUniform
             
-            # Safe wrapper to pop unsupported InputLayer keys
             class SafeInputLayer(InputLayer):
                 @classmethod
                 def from_config(cls, config):
@@ -71,8 +71,6 @@ def load_brain_model():
                     config.pop('optional', None)
                     return super().from_config(config)
 
-            # Safe wrapper to pop unsupported initializer keys (like input_axes/output_axes)
-            from tensorflow.keras.initializers import GlorotUniform
             class SafeGlorotUniform(GlorotUniform):
                 @classmethod
                 def from_config(cls, config):
@@ -80,9 +78,19 @@ def load_brain_model():
                     config.pop('output_axes', None)
                     return super().from_config(config)
 
+            # Map DTypePolicy to standard string/float handling or a dummy class if needed
+            try:
+                from keras.src.dtype_policies.dtype_policy import DTypePolicy
+            except ImportError:
+                try:
+                    from tensorflow.keras.mixed_precision import Policy as DTypePolicy
+                except ImportError:
+                    DTypePolicy = object
+
             custom_objects = {
                 'InputLayer': SafeInputLayer,
                 'GlorotUniform': SafeGlorotUniform,
+                'DTypePolicy': DTypePolicy,
             }
 
             with keras.utils.custom_object_scope(custom_objects):
