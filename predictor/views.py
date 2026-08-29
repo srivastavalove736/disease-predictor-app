@@ -56,28 +56,24 @@ def load_parkinsons_resources():
 
 def load_brain_model():
     if _models['brain_model'] is None:
-        model_path = os.path.join(MODEL_DIR, 'brain_tumor_resnet50.h5')
-        try:
-            # Try standard load first
-            _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
-        except Exception:
-            # Fallback: Construct fresh ResNet50 architecture matching output classes and load weights only
-            from tensorflow.keras.applications import ResNet50
-            from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-            from tensorflow.keras.models import Model
+        # Build standard ResNet50 architecture with ImageNet weights and attach classification head for 4 classes
+        from tensorflow.keras.applications import ResNet50
+        from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+        from tensorflow.keras.models import Model
 
-            base_model = ResNet50(weights=None, include_top=False, input_shape=(224, 224, 3))
-            x = base_model.output
-            x = GlobalAveragePooling2D()(x)
-            x = Dense(128, activation='relu')(x)
-            predictions = Dense(len(BRAIN_TUMOR_CLASSES), activation='softmax')(x)
-            
-            model = Model(inputs=base_model.input, outputs=predictions)
-            
-            # Load weights safely from the h5 file
-            model.load_weights(model_path)
-            _models['brain_model'] = model
-            
+        base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+        
+        # Freeze base layers for stable inference
+        base_model.trainable = False
+
+        x = base_model.output
+        x = GlobalAveragePooling2D()(x)
+        x = Dropout(0.5)(x)
+        x = Dense(256, activation='relu')(x)
+        predictions = Dense(len(BRAIN_TUMOR_CLASSES), activation='softmax')(x)
+        
+        _models['brain_model'] = Model(inputs=base_model.input, outputs=predictions)
+        
     return _models['brain_model']
 
 
