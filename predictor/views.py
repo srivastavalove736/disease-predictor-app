@@ -57,13 +57,20 @@ def load_parkinsons_resources():
 def load_brain_model():
     if _models['brain_model'] is None:
         model_path = os.path.join(MODEL_DIR, 'brain_tumor_resnet50.h5')
-        # Use compile=False to avoid missing loss/metric deserialization errors
         try:
             _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
-        except TypeError:
-            # Fallback if custom input shape handling is needed
+        except Exception:
             import keras
-            with keras.utils.custom_object_scope({'InputLayer': tf.keras.layers.InputLayer}):
+            from tensorflow.keras.layers import InputLayer
+            
+            class SafeInputLayer(InputLayer):
+                @classmethod
+                def from_config(cls, config):
+                    config.pop('batch_shape', None)
+                    config.pop('optional', None)
+                    return super().from_config(config)
+
+            with keras.utils.custom_object_scope({'InputLayer': SafeInputLayer}):
                 _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
     return _models['brain_model']
 
