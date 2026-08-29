@@ -63,6 +63,7 @@ def load_brain_model():
             import keras
             from tensorflow.keras.layers import InputLayer
             
+            # Safe wrapper to pop unsupported InputLayer keys
             class SafeInputLayer(InputLayer):
                 @classmethod
                 def from_config(cls, config):
@@ -70,7 +71,21 @@ def load_brain_model():
                     config.pop('optional', None)
                     return super().from_config(config)
 
-            with keras.utils.custom_object_scope({'InputLayer': SafeInputLayer}):
+            # Safe wrapper to pop unsupported initializer keys (like input_axes/output_axes)
+            from tensorflow.keras.initializers import GlorotUniform
+            class SafeGlorotUniform(GlorotUniform):
+                @classmethod
+                def from_config(cls, config):
+                    config.pop('input_axes', None)
+                    config.pop('output_axes', None)
+                    return super().from_config(config)
+
+            custom_objects = {
+                'InputLayer': SafeInputLayer,
+                'GlorotUniform': SafeGlorotUniform,
+            }
+
+            with keras.utils.custom_object_scope(custom_objects):
                 _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
     return _models['brain_model']
 
