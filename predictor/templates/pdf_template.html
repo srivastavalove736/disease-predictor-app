@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MedPredict Diagnostic Report</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 25pt;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #2b2b2b;
+            font-size: 10pt;
+            line-height: 1.4;
+        }
+
+        /* Header Section */
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+        .header h1 {
+            color: #0056b3;
+            margin: 0;
+            font-size: 20pt;
+        }
+        .header p {
+            color: #666666;
+            margin: 4px 0 0 0;
+            font-size: 9pt;
+        }
+
+        /* Section Headings */
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #0056b3;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 3px;
+        }
+
+        /* Tables */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .table th, .table td {
+            border: 1px solid #e0e0e0;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            width: 35%;
+            font-weight: bold;
+            color: #333333;
+        }
+
+        /* Diagnostic Box */
+        .diagnostic-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-left: 4px solid #0056b3;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .result-text {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #111111;
+        }
+        .confidence-text {
+            font-size: 9pt;
+            color: #555555;
+            margin-top: 4px;
+        }
+
+        /* AI Health Assistant Recommendations Box */
+        .recommendations-box {
+            border: 1px solid #b2ebf2;
+            background-color: #e0f7fa;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        .rec-header {
+            color: #006064;
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* Sub-cards within recommendations */
+        .card {
+            background-color: #ffffff;
+            border: 1px solid #d1eed8;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+        }
+        .card-title {
+            font-weight: bold;
+            color: #00838f;
+            font-size: 10pt;
+            margin-bottom: 4px;
+        }
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        li {
+            margin-bottom: 3px;
+            color: #333333;
+            font-size: 9.5pt;
+        }
+
+        /* Footer Disclaimer */
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 8pt;
+            color: #777777;
+            border-top: 1px solid #eeeeee;
+            padding-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Header -->
+    <div class="header">
+        <h1>MedPredict Diagnostic Report</h1>
+        <p>Automated Machine Learning Assessment</p>
+    </div>
+
+    <!-- Patient Info -->
+    <div class="section-title">Patient Details</div>
+    <table class="table">
+        <tr>
+            <th>Patient Username</th>
+            <td>{{ user.username }}</td>
+        </tr>
+        <tr>
+            <th>Assessment Type</th>
+            <td>{{ record.disease_type }}</td>
+        </tr>
+        <tr>
+            <th>Date & Time</th>
+            <td>{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
+        </tr>
+    </table>
+
+    <!-- Diagnostic Output -->
+    <div class="section-title">Diagnostic Output</div>
+    <div class="diagnostic-box">
+        <div class="result-text">{{ record.result }}</div>
+        {% if record.confidence %}
+            <div class="confidence-text">Model Confidence: {{ record.confidence|floatformat:2 }}%</div>
+        {% endif %}
+    </div>
+
+    <!-- AI Health Assistant Recommendations -->
+    {% if ai_insights %}
+    <div class="recommendations-box">
+        <div class="rec-header">AI Health Assistant Recommendations</div>
+
+        {% if ai_insights.diet_lifestyle %}
+        <div class="card">
+            <div class="card-title">Lifestyle & Care Guidance</div>
+            <ul>
+                {% for item in ai_insights.diet_lifestyle %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if ai_insights.next_steps %}
+        <div class="card">
+            <div class="card-title">Recommended Next Steps</div>
+            <ul>
+                {% for item in ai_insights.next_steps %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if ai_insights.questions_for_doctor %}
+        <div class="card">
+            <div class="card-title">Questions to Ask Your Doctor</div>
+            <ul>
+                {% for item in ai_insights.questions_for_doctor %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Footer Disclaimer -->
+    <div class="footer">
+        <p>This report is generated automatically by an AI prediction model. Please consult a medical professional for formal diagnoses.</p>
+    </div>
+
+</body>
+</html>

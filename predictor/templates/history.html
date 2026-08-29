@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction History & Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light p-4">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Analytics & Diagnostic History</h2>
+            <a href="{% url 'home' %}" class="btn btn-primary">Back to Dashboard</a>
+        </div>
+
+        <!-- Analytics Chart Container -->
+        <div class="row mb-5">
+            <div class="col-md-6 offset-md-3">
+                <div class="card p-3 shadow-sm">
+                    <h5 class="card-title text-center">Prediction Breakdown</h5>
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="card p-3 shadow-sm">
+            <h5 class="card-title">Recorded Diagnostic Logs</h5>
+            <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Disease Category</th>
+                        <th>Result</th>
+                        <th>Confidence</th>
+                        <th>Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rec in records %}
+                    <tr>
+                        <td>{{ rec.created_at|date:"M d, Y H:i" }}</td>
+                        <td>{{ rec.disease_type }}</td>
+                        <td>{{ rec.result }}</td>
+                        <td>{% if rec.confidence %}{{ rec.confidence|floatformat:1 }}%{% else %}N/A{% endif %}</td>
+                        <td>
+                            <a href="{% url 'download_pdf' rec.id %}" class="btn btn-sm btn-outline-danger">PDF</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No predictions recorded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('analyticsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [{
+                    data: {{ chart_counts|safe }},
+                    backgroundColor: ['#0d6efd', '#dc3545', '#198754', '#ffc107', '#0dcaf0']
+                }]
+            },
+            options: { responsive: true }
+        });
+    </script>
+</body>
+</html>

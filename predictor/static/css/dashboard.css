@@ -1,0 +1,87 @@
+:root {
+    --bg-main: #0b0f19;
+    --sidebar-bg: #111827;
+    --card-bg: #151c2c;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --input-bg: #0f172a;
+    --text-primary: #f8fafc;
+    --text-muted: #cbd5e1;
+    --accent-blue: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.25);
+}
+
+body {
+    background-color: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Glassmorphism Cards */
+.dash-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.dash-card:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Typography & Metric Text */
+.metric-title {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0.2rem 0;
+}
+
+.metric-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-up { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+.badge-blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+
+/* Custom Inputs & Buttons */
+.dash-input {
+    background: #0f172a !important;
+    border: 1px solid var(--card-border) !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+    padding: 0.75rem 1rem !important;
+}
+
+.dash-input:focus {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+.dash-btn-primary {
+    background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0.75rem 1.5rem;
+    transition: opacity 0.2s ease;
+}
+
+.dash-btn-primary:hover {
+    opacity: 0.9;
+}
