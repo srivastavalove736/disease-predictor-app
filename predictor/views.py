@@ -14,6 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from xhtml2pdf import pisa
 from .models import PredictionRecord
+import tensorflow as tf
 
 BASE_DIR = settings.BASE_DIR
 MODEL_DIR = os.path.join(BASE_DIR, 'predictor', 'models_ml')
@@ -44,8 +45,7 @@ def load_heart_resources():
 
 def load_skin_model():
     if _models['skin_model'] is None:
-        import tensorflow as tf
-        _models['skin_model'] = tf.keras.models.load_model(os.path.join(MODEL_DIR, 'skin_cancer_resnet50.h5'))
+        _models['skin_model'] = tf.keras.models.load_model(os.path.join(MODEL_DIR, 'skin_cancer_resnet50.h5'), compile=False)
     return _models['skin_model']
 
 def load_parkinsons_resources():
@@ -56,8 +56,15 @@ def load_parkinsons_resources():
 
 def load_brain_model():
     if _models['brain_model'] is None:
-        import tensorflow as tf
-        _models['brain_model'] = tf.keras.models.load_model(os.path.join(MODEL_DIR, 'brain_tumor_resnet50.h5'))
+        model_path = os.path.join(MODEL_DIR, 'brain_tumor_resnet50.h5')
+        # Use compile=False to avoid missing loss/metric deserialization errors
+        try:
+            _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
+        except TypeError:
+            # Fallback if custom input shape handling is needed
+            import keras
+            with keras.utils.custom_object_scope({'InputLayer': tf.keras.layers.InputLayer}):
+                _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
     return _models['brain_model']
 
 
@@ -443,7 +450,6 @@ def predict_report(request):
         # 2. Refined Rule-Based NLP Keyword Extraction
         result = "Normal / No High Risk Indicators Detected"
 
-        # 1. Check for Malaria & Parasitic Vector-Borne Markers FIRST
         malaria_keywords = ['malaria', 'plasmodium', 'pldh', 'hrp-2', 'vivax', 'falciparum', 'parasitemia', 'trophozoites', 'ring forms']
         if any(kw in extracted_text for kw in malaria_keywords):
             if any(term in extracted_text for term in ['positive', 'detected', 'seen', 'high', 'reactive']):
@@ -451,40 +457,34 @@ def predict_report(request):
             else:
                 result = "Parasite Screening: Malaria Markers Non-Reactive"
 
-        # 2. Check for Typhoid / Enteric Fever Markers SECOND
         elif any(kw in extracted_text for kw in ['typhoid', 'salmonella', 'widal', 'typhidot', 'enteric fever', 's. typhi']):
             if any(term in extracted_text for term in ['positive', 'reactive', 'isolated', '1:160', '1:320', 'high']):
                 result = "Infectious Indication: Active Enteric Fever / Typhoid Detected"
             else:
                 result = "Serology Evaluation: Typhoid Markers Present (Non-Reactive / Low Titer)"
 
-        # 3. Check for Liver / Hepatitis / Jaundice Markers
         elif any(kw in extracted_text for kw in ['jaundice', 'hepatitis', 'hepatobiliary', 'hav', 'hbv', 'hcv']):
             if any(term in extracted_text for term in ['high', 'elevated', 'reactive', 'positive', 'abnormal']):
                 result = "Hepatic Indication: Acute Viral Hepatitis / Jaundice Detected"
             else:
                 result = "Liver Profile: Normal Range"
 
-        # 4. Check for Cardiovascular / Lipid Profile
         elif any(kw in extracted_text for kw in ['cholesterol', 'triglycerides', 'troponin', 'lipid']):
             if any(term in extracted_text for term in ['high', 'abnormal', 'elevated', 'borderline']):
                 result = "High Risk: Cardiovascular / Lipid Anomaly"
             else:
                 result = "Normal Range: Lipid & Cardiac Markers"
 
-        # 5. Check for Glycemic / Diabetes Indicators
         elif 'hba1c' in extracted_text or ('glucose' in extracted_text and any(term in extracted_text for term in ['hyperglycemia', 'diabetic', 'prediabetes'])):
             if any(term in extracted_text for term in ['high', 'elevated']):
                 result = "High Risk: Hyperglycemia / Diabetes Indication"
             else:
                 result = "Normal Range: Glycemic Control"
 
-        # 6. Check for Anemia / Hematology Profile LAST
         elif any(kw in extracted_text for kw in ['hemoglobin', 'rbc', 'iron', 'ferritin']):
             if any(term in extracted_text for term in ['low', 'anemia', 'deficiency']):
                 result = "Risk Identified: Low Hemoglobin / Anemia"
 
-        # 3. Save to database
         rec = PredictionRecord.objects.create(user=request.user, disease_type='PDF Report Analysis', result=result)
         ai_insights = generate_ai_insights('PDF Report', result)
 
@@ -535,8 +535,8 @@ def history(request):
     records = PredictionRecord.objects.filter(user=request.user).order_by('-created_at')
     
     disease_counts = list(PredictionRecord.objects.filter(user=request.user)
-                          .values('disease_type')
-                          .annotate(count=Count('id')))
+                         .values('disease_type')
+                         .annotate(count=Count('id')))
     
     labels = [item['disease_type'] for item in disease_counts]
     counts = [item['count'] for item in disease_counts]
@@ -553,7 +553,6 @@ def history(request):
 def download_pdf(request, record_id):
     record = get_object_or_404(PredictionRecord, id=record_id, user=request.user)
     
-    # Generate the AI insights dynamically for the PDF render context
     ai_insights = generate_ai_insights(record.disease_type, record.result)
     
     template_path = 'pdf_template.html'
