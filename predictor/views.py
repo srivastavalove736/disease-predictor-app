@@ -62,14 +62,14 @@ def load_brain_model():
         except Exception:
             import h5py
             import tempfile
-            import keras
+            import shutil
+            import json
 
-            # Open the h5 file and clean up the saved model config JSON string directly
+            # Open the h5 file and extract the model configuration JSON string
             with h5py.File(model_path, 'r') as f:
                 if 'model_config' in f.attrs:
                     config_str = f.attrs['model_config']
                 else:
-                    # Sometimes stored as a json dataset or bytes
                     config_str = f['model_config'][()]
             
             if isinstance(config_str, bytes):
@@ -77,7 +77,7 @@ def load_brain_model():
                 
             config_dict = json.loads(config_str)
 
-            # Recursive function to clean up version-mismatched keys from any layer config
+            # Recursive function to clean up version-mismatched keys and DTypePolicy objects
             def clean_config(node):
                 if isinstance(node, dict):
                     node.pop('quantization_config', None)
@@ -85,6 +85,18 @@ def load_brain_model():
                     node.pop('output_axes', None)
                     node.pop('optional', None)
                     node.pop('batch_shape', None)
+                    
+                    # Convert complex DTypePolicy dictionaries to simple string dtype ('float32')
+                    if 'dtype' in node:
+                        dt = node['dtype']
+                        if isinstance(dt, dict):
+                            # Extract inner config name if available, default to 'float32'
+                            inner_config = dt.get('config', {})
+                            if isinstance(inner_config, dict):
+                                node['dtype'] = inner_config.get('name', 'float32')
+                            else:
+                                node['dtype'] = 'float32'
+
                     for key, val in node.items():
                         clean_config(val)
                 elif isinstance(node, list):
@@ -93,11 +105,10 @@ def load_brain_model():
 
             clean_config(config_dict)
 
-            # Save the cleaned config to a temporary h5 file and load it safely
+            # Save the cleaned config into a temporary h5 file copy and load it
             with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
                 temp_path = tmp.name
 
-            import shutil
             shutil.copyfile(model_path, temp_path)
 
             with h5py.File(temp_path, 'r+') as f:
