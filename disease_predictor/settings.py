@@ -18,7 +18,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-4m5i3u7v!#1pt+)yjop+(lzp)5ey1kq!uw*a^s#582j57i97k!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+# Defaults to True for local development so detailed tracebacks are shown instead of generic 500 pages.
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # Allow Render domain and local development hosts
 ALLOWED_HOSTS = ['*']
@@ -120,8 +121,18 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Production storage for WhiteNoise
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Storage setting for WhiteNoise static file handling
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+# Legacy setting maintained for compatibility
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 
 # Media files (User uploads for PDF & Image analysis)

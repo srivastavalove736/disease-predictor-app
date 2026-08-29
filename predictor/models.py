@@ -6,6 +6,7 @@ class PredictionRecord(models.Model):
     disease_type = models.CharField(max_length=50)
     result = models.CharField(max_length=255)
     confidence = models.FloatField(null=True, blank=True)
+    image = models.ImageField(upload_to='prediction_images/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

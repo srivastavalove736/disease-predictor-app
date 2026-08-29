@@ -2,102 +2,131 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - MedPredict</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        .chat-box { max-height: 280px; overflow-y: auto; background-color: #f8f9fa; border-radius: 8px; padding: 12px; }
+        .chat-box { max-height: 300px; overflow-y: auto; background-color: #f8f9fa; border-radius: 8px; padding: 12px; }
         .user-msg { text-align: right; color: #0d6efd; margin-bottom: 8px; }
-        .bot-msg { text-align: left; color: #212529; background: #e9ecef; padding: 8px 12px; border-radius: 8px; display: inline-block; margin-bottom: 8px; }
+        .bot-msg { text-align: left; color: #212529; background: #e9ecef; padding: 8px 12px; border-radius: 8px; display: inline-block; margin-bottom: 8px; max-width: 85%; }
         .typing-indicator { font-style: italic; color: #6c757d; font-size: 0.85rem; }
     </style>
 </head>
-<body class="bg-light py-5">
+<body class="bg-light py-4">
 
 <div class="container" style="max-width: 850px;">
-    
+
+    <!-- Medical Disclaimer Banner -->
+    <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center mb-4 shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2 fs-5"></i>
+        <div class="small">
+            <strong>Medical Disclaimer:</strong> This tool provides machine-learning predictions for preliminary screening only. Results should be verified by a licensed healthcare professional.
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
     <!-- Prediction Result Card -->
-    <div class="card p-4 shadow-sm mb-4">
+    <div class="card p-4 shadow-sm mb-4 border-0 rounded-3">
         <h2 class="text-center text-primary mb-3">{{ title }}</h2>
-        <hr>
+        <hr class="text-muted">
+        
         {% if image_url %}
-            <div class="text-center">
-                <img src="{{ image_url }}" class="img-fluid rounded mb-3" style="max-height: 250px;">
+            <div class="text-center my-3">
+                <img src="{{ image_url }}" class="img-fluid rounded border shadow-sm" style="max-height: 260px;" alt="Medical Scan Image">
+            </div>
+        {% endif %}
+
+        {% if extracted_text_snippet %}
+            <div class="alert alert-secondary text-start mb-3 small">
+                <h6 class="alert-heading fw-bold mb-1"><i class="bi bi-file-text me-1"></i> Extracted Report Text Snippet:</h6>
+                <p class="mb-0 text-muted fs-7">{{ extracted_text_snippet }}</p>
             </div>
         {% endif %}
         
-        <h4 class="text-center my-2 text-dark">{{ prediction }}</h4>
-        {% if confidence %}
-            <p class="text-center text-muted">Model Confidence Rating: <strong>{{ confidence|floatformat:2 }}%</strong></p>
-        {% endif %}
+        <div class="text-center my-3">
+            <span class="badge bg-primary fs-6 px-3 py-2 mb-2">Screening Result</span>
+            <h3 class="fw-bold text-dark mb-2">{{ prediction }}</h3>
+            {% if confidence %}
+                <p class="text-muted small">Model Confidence Rating: <strong class="text-dark">{{ confidence|floatformat:2 }}%</strong></p>
+            {% endif %}
+        </div>
 
         <div class="d-flex justify-content-center gap-2 mt-3">
-            <a href="{% url 'download_pdf' record_id %}" class="btn btn-outline-danger">
-                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Download PDF Report
-            </a>
-            <a href="{% url 'home' %}" class="btn btn-secondary">
+            {% if record_id %}
+                <a href="{% url 'download_pdf' record_id %}" class="btn btn-outline-danger px-4">
+                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Download PDF Report
+                </a>
+            {% endif %}
+            <a href="{% url 'home' %}" class="btn btn-secondary px-4">
                 <i class="bi bi-house-door me-1"></i> Back to Dashboard
             </a>
         </div>
     </div>
 
     <!-- AI Health Assistant Recommendations Section -->
-    <div class="card p-4 shadow-sm mb-4 border-info">
+    <div class="card p-4 shadow-sm mb-4 border-info rounded-3">
         <h4 class="text-info-emphasis mb-3">
             <i class="bi bi-robot me-2"></i> AI Health Assistant Recommendations
         </h4>
         
         <div class="row g-3">
             <div class="col-md-6">
-                <div class="p-3 bg-light rounded h-100 border">
-                    <h6 class="text-success"><i class="bi bi-heart-pulse me-2"></i>Lifestyle & Care Guidance</h6>
-                    <ul class="small mb-0 ps-3">
+                <div class="p-3 bg-white rounded-3 h-100 border">
+                    <h6 class="text-success fw-bold"><i class="bi bi-heart-pulse me-2"></i>Lifestyle & Care Guidance</h6>
+                    <ul class="small mb-0 ps-3 text-secondary">
                         {% for item in ai_insights.diet_lifestyle %}
-                            <li>{{ item }}</li>
+                            <li class="mb-1">{{ item }}</li>
+                        {% empty %}
+                            <li>Follow standard balanced lifestyle and health guidelines.</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
 
             <div class="col-md-6">
-                <div class="p-3 bg-light rounded h-100 border">
-                    <h6 class="text-primary"><i class="bi bi-card-checklist me-2"></i>Recommended Next Steps</h6>
-                    <ul class="small mb-0 ps-3">
+                <div class="p-3 bg-white rounded-3 h-100 border">
+                    <h6 class="text-primary fw-bold"><i class="bi bi-card-checklist me-2"></i>Recommended Next Steps</h6>
+                    <ul class="small mb-0 ps-3 text-secondary">
                         {% for item in ai_insights.next_steps %}
-                            <li>{{ item }}</li>
+                            <li class="mb-1">{{ item }}</li>
+                        {% empty %}
+                            <li>Consult a qualified physician for a clinical evaluation.</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
         </div>
 
-        <div class="mt-3 p-3 bg-light rounded border">
-            <h6 class="text-dark"><i class="bi bi-question-circle me-2"></i>Questions to Ask Your Doctor</h6>
-            <ul class="small mb-0 ps-3">
+        <div class="mt-3 p-3 bg-white rounded-3 border">
+            <h6 class="text-dark fw-bold"><i class="bi bi-question-circle me-2"></i>Questions to Ask Your Doctor</h6>
+            <ul class="small mb-0 ps-3 text-secondary">
                 {% for item in ai_insights.questions_for_doctor %}
-                    <li>{{ item }}</li>
+                    <li class="mb-1">{{ item }}</li>
+                {% empty %}
+                    <li>What further tests or steps do you recommend based on this screening?</li>
                 {% endfor %}
             </ul>
         </div>
     </div>
 
     <!-- Interactive AI Assistant Chat -->
-    <div class="card p-4 shadow-sm">
-        <h5 class="mb-3"><i class="bi bi-chat-dots me-2"></i>Ask AI Health Assistant</h5>
-        <div id="chatBox" class="chat-box mb-3">
+    <div class="card p-4 shadow-sm border-0 rounded-3">
+        <h5 class="mb-3 fw-bold"><i class="bi bi-chat-dots me-2 text-primary"></i>Ask AI Health Assistant</h5>
+        <div id="chatBox" class="chat-box mb-3 border">
             <div class="bot-msg">
-                Hello! I can answer questions regarding your {{ disease_type }} screening results or general care recommendations.
+                Hello! I am here to help. Feel free to ask questions regarding your <strong>{{ disease_type|default:"medical" }}</strong> screening results, dietary advice, or next steps.
             </div>
         </div>
         <div class="input-group">
-            <input type="text" id="userInput" class="form-control" placeholder="Ask a question (e.g. What should I eat? When to see a doctor?)..." autofocus>
-            <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()"><i class="bi bi-send"></i> Send</button>
+            <input type="text" id="userInput" class="form-control" placeholder="Ask a question (e.g., What should I eat? What does this result mean?)..." autofocus>
+            <button class="btn btn-primary px-4" id="sendBtn" onclick="sendMessage()"><i class="bi bi-send"></i> Send</button>
         </div>
     </div>
 
 </div>
 
-<script>
+<script class="keep">
     function sendMessage() {
         const input = document.getElementById('userInput');
         const chatBox = document.getElementById('chatBox');
@@ -109,7 +138,7 @@
         // Append user message
         const userDiv = document.createElement('div');
         userDiv.className = 'user-msg';
-        userDiv.innerHTML = `<strong>You:</strong> ${text}`;
+        userDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(text)}`;
         chatBox.appendChild(userDiv);
 
         input.value = '';
@@ -136,8 +165,8 @@
             },
             body: JSON.stringify({
                 message: text,
-                disease_type: "{{ disease_type }}",
-                result: "{{ prediction }}"
+                disease_type: "{{ disease_type|escapejs }}",
+                result: "{{ prediction|escapejs }}"
             })
         })
         .then(res => {
@@ -145,13 +174,12 @@
             return res.json();
         })
         .then(data => {
-            // Remove loading indicator
             const loading = document.getElementById('loadingIndicator');
             if (loading) loading.remove();
 
             const botDiv = document.createElement('div');
             botDiv.className = 'bot-msg';
-            botDiv.innerHTML = `<strong>AI Assistant:</strong> ${data.reply}`;
+            botDiv.innerHTML = `<strong>AI Assistant:</strong> ${escapeHtml(data.reply || "No response received.")}`;
             chatBox.appendChild(botDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         })
@@ -172,11 +200,24 @@
         });
     }
 
+    // Utility function to prevent XSS in chat messages
+    function escapeHtml(str) {
+        return str.replace(/[&<>"']/g, function(m) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[m];
+        });
+    }
+
     // Allow Enter key to send message
     document.getElementById('userInput').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') sendMessage();
     });
 </script>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

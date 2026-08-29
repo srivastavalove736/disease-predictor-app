@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pypdf
 from PIL import Image
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -288,6 +288,7 @@ def predict_diabetes(request):
             'record_id': rec.id,
             'ai_insights': ai_insights
         })
+    return redirect('home')
 
 @login_required(login_url='login')
 def predict_heart(request):
@@ -308,36 +309,53 @@ def predict_heart(request):
             'record_id': rec.id,
             'ai_insights': ai_insights
         })
+    return redirect('home')
 
 @login_required(login_url='login')
 def predict_skin(request):
     if request.method == 'POST' and request.FILES.get('skin_image'):
+        from tensorflow.keras.applications.resnet50 import preprocess_input
         skin_model = load_skin_model()
         image_file = request.FILES['skin_image']
-        fs = FileSystemStorage()
-        filename = fs.save(image_file.name, image_file)
-        file_url = fs.url(filename)
 
-        img = Image.open(fs.path(filename)).resize((224, 224))
-        img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+        img = Image.open(image_file).convert('RGB').resize((224, 224))
+        img_array = np.array(img, dtype=np.float32)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = preprocess_input(img_array)
 
         preds = skin_model.predict(img_array)
-        class_idx = np.argmax(preds)
-        confidence = float(np.max(preds) * 100)
+        
+        # Check if output is raw logits or softmax probabilities
+        if np.isclose(np.sum(preds[0]), 1.0, atol=1e-2):
+            probs = preds[0]
+        else:
+            exp_p = np.exp(preds[0] - np.max(preds[0]))
+            probs = exp_p / exp_p.sum()
+
+        class_idx = np.argmax(probs)
+        confidence = float(probs[class_idx] * 100)
 
         result = f"Diagnosis: {SKIN_CLASSES[class_idx]}"
-        rec = PredictionRecord.objects.create(user=request.user, disease_type='Skin', result=result, confidence=confidence)
+        
+        rec = PredictionRecord.objects.create(
+            user=request.user, 
+            disease_type='Skin', 
+            result=result, 
+            confidence=confidence,
+            image=image_file
+        )
         ai_insights = generate_ai_insights('Skin', result)
 
         return render(request, 'result.html', {
             'prediction': result,
-            'image_url': file_url,
+            'image_url': rec.image.url if rec.image else None,
             'title': 'Skin Cancer Screening',
             'disease_type': 'Skin',
             'confidence': confidence,
             'record_id': rec.id,
             'ai_insights': ai_insights
         })
+    return redirect('home')
 
 @login_required(login_url='login')
 def predict_parkinsons(request):
@@ -358,36 +376,53 @@ def predict_parkinsons(request):
             'record_id': rec.id,
             'ai_insights': ai_insights
         })
+    return redirect('home')
 
 @login_required(login_url='login')
 def predict_brain(request):
     if request.method == 'POST' and request.FILES.get('mri_image'):
+        from tensorflow.keras.applications.resnet50 import preprocess_input
         brain_model = load_brain_model()
         image_file = request.FILES['mri_image']
-        fs = FileSystemStorage()
-        filename = fs.save(image_file.name, image_file)
-        file_url = fs.url(filename)
 
-        img = Image.open(fs.path(filename)).resize((224, 224))
-        img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+        img = Image.open(image_file).convert('RGB').resize((224, 224))
+        img_array = np.array(img, dtype=np.float32)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = preprocess_input(img_array)
 
         preds = brain_model.predict(img_array)
-        class_idx = np.argmax(preds)
-        confidence = float(np.max(preds) * 100)
+
+        # Check if output is raw logits or softmax probabilities
+        if np.isclose(np.sum(preds[0]), 1.0, atol=1e-2):
+            probs = preds[0]
+        else:
+            exp_p = np.exp(preds[0] - np.max(preds[0]))
+            probs = exp_p / exp_p.sum()
+
+        class_idx = np.argmax(probs)
+        confidence = float(probs[class_idx] * 100)
 
         result = f"Diagnosis: {BRAIN_TUMOR_CLASSES[class_idx]}"
-        rec = PredictionRecord.objects.create(user=request.user, disease_type='Brain Tumor', result=result, confidence=confidence)
+        
+        rec = PredictionRecord.objects.create(
+            user=request.user, 
+            disease_type='Brain Tumor', 
+            result=result, 
+            confidence=confidence,
+            image=image_file
+        )
         ai_insights = generate_ai_insights('Brain Tumor', result)
 
         return render(request, 'result.html', {
             'prediction': result,
-            'image_url': file_url,
+            'image_url': rec.image.url if rec.image else None,
             'title': 'Brain Tumor MRI Analysis',
             'disease_type': 'Brain Tumor',
             'confidence': confidence,
             'record_id': rec.id,
             'ai_insights': ai_insights
         })
+    return redirect('home')
 
 @login_required(login_url='login')
 def predict_report(request):
@@ -462,7 +497,7 @@ def predict_report(request):
             'extracted_text_snippet': extracted_text[:300] + "..." if extracted_text else "No text extracted."
         })
 
-    return render(request, 'index.html')
+    return redirect('home')
 
 
 # --- AI CHATBOT API ENDPOINT ---
@@ -516,7 +551,7 @@ def history(request):
 # --- PDF GENERATION VIEW ---
 @login_required(login_url='login')
 def download_pdf(request, record_id):
-    record = PredictionRecord.objects.get(id=record_id, user=request.user)
+    record = get_object_or_404(PredictionRecord, id=record_id, user=request.user)
     
     # Generate the AI insights dynamically for the PDF render context
     ai_insights = generate_ai_insights(record.disease_type, record.result)
