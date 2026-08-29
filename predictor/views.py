@@ -60,41 +60,60 @@ def load_brain_model():
         try:
             _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
         except Exception:
+            import h5py
+            import tempfile
             import keras
-            from tensorflow.keras.layers import InputLayer
-            from tensorflow.keras.initializers import GlorotUniform
+
+            # Open the h5 file and clean up the saved model config JSON string directly
+            with h5py.File(model_path, 'r') as f:
+                if 'model_config' in f.attrs:
+                    config_str = f.attrs['model_config']
+                else:
+                    # Sometimes stored as a json dataset or bytes
+                    config_str = f['model_config'][()]
             
-            class SafeInputLayer(InputLayer):
-                @classmethod
-                def from_config(cls, config):
-                    config.pop('batch_shape', None)
-                    config.pop('optional', None)
-                    return super().from_config(config)
+            if isinstance(config_str, bytes):
+                config_str = config_str.decode('utf-8')
+                
+            config_dict = json.loads(config_str)
 
-            class SafeGlorotUniform(GlorotUniform):
-                @classmethod
-                def from_config(cls, config):
-                    config.pop('input_axes', None)
-                    config.pop('output_axes', None)
-                    return super().from_config(config)
+            # Recursive function to clean up version-mismatched keys from any layer config
+            def clean_config(node):
+                if isinstance(node, dict):
+                    node.pop('quantization_config', None)
+                    node.pop('input_axes', None)
+                    node.pop('output_axes', None)
+                    node.pop('optional', None)
+                    node.pop('batch_shape', None)
+                    for key, val in node.items():
+                        clean_config(val)
+                elif isinstance(node, list):
+                    for item in node:
+                        clean_config(item)
 
-            # Map DTypePolicy to standard string/float handling or a dummy class if needed
+            clean_config(config_dict)
+
+            # Save the cleaned config to a temporary h5 file and load it safely
+            with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+                temp_path = tmp.name
+
+            import shutil
+            shutil.copyfile(model_path, temp_path)
+
+            with h5py.File(temp_path, 'r+') as f:
+                new_config_bytes = json.dumps(config_dict).encode('utf-8')
+                if 'model_config' in f.attrs:
+                    f.attrs['model_config'] = new_config_bytes
+                else:
+                    del f['model_config']
+                    f.create_dataset('model_config', data=new_config_bytes)
+
             try:
-                from keras.src.dtype_policies.dtype_policy import DTypePolicy
-            except ImportError:
-                try:
-                    from tensorflow.keras.mixed_precision import Policy as DTypePolicy
-                except ImportError:
-                    DTypePolicy = object
+                _models['brain_model'] = tf.keras.models.load_model(temp_path, compile=False)
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
 
-            custom_objects = {
-                'InputLayer': SafeInputLayer,
-                'GlorotUniform': SafeGlorotUniform,
-                'DTypePolicy': DTypePolicy,
-            }
-
-            with keras.utils.custom_object_scope(custom_objects):
-                _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
     return _models['brain_model']
 
 
