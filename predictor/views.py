@@ -58,73 +58,26 @@ def load_brain_model():
     if _models['brain_model'] is None:
         model_path = os.path.join(MODEL_DIR, 'brain_tumor_resnet50.h5')
         try:
+            # Try standard load first
             _models['brain_model'] = tf.keras.models.load_model(model_path, compile=False)
         except Exception:
-            import h5py
-            import tempfile
-            import shutil
-            import json
+            # Fallback: Construct fresh ResNet50 architecture matching output classes and load weights only
+            from tensorflow.keras.applications import ResNet50
+            from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+            from tensorflow.keras.models import Model
 
-            # Open the h5 file and extract the model configuration JSON string
-            with h5py.File(model_path, 'r') as f:
-                if 'model_config' in f.attrs:
-                    config_str = f.attrs['model_config']
-                else:
-                    config_str = f['model_config'][()]
+            base_model = ResNet50(weights=None, include_top=False, input_shape=(224, 224, 3))
+            x = base_model.output
+            x = GlobalAveragePooling2D()(x)
+            x = Dense(128, activation='relu')(x)
+            predictions = Dense(len(BRAIN_TUMOR_CLASSES), activation='softmax')(x)
             
-            if isinstance(config_str, bytes):
-                config_str = config_str.decode('utf-8')
-                
-            config_dict = json.loads(config_str)
-
-            # Recursive function to clean up version-mismatched keys and DTypePolicy objects
-            def clean_config(node):
-                if isinstance(node, dict):
-                    node.pop('quantization_config', None)
-                    node.pop('input_axes', None)
-                    node.pop('output_axes', None)
-                    node.pop('optional', None)
-                    node.pop('batch_shape', None)
-                    
-                    # Convert complex DTypePolicy dictionaries to simple string dtype ('float32')
-                    if 'dtype' in node:
-                        dt = node['dtype']
-                        if isinstance(dt, dict):
-                            # Extract inner config name if available, default to 'float32'
-                            inner_config = dt.get('config', {})
-                            if isinstance(inner_config, dict):
-                                node['dtype'] = inner_config.get('name', 'float32')
-                            else:
-                                node['dtype'] = 'float32'
-
-                    for key, val in node.items():
-                        clean_config(val)
-                elif isinstance(node, list):
-                    for item in node:
-                        clean_config(item)
-
-            clean_config(config_dict)
-
-            # Save the cleaned config into a temporary h5 file copy and load it
-            with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
-                temp_path = tmp.name
-
-            shutil.copyfile(model_path, temp_path)
-
-            with h5py.File(temp_path, 'r+') as f:
-                new_config_bytes = json.dumps(config_dict).encode('utf-8')
-                if 'model_config' in f.attrs:
-                    f.attrs['model_config'] = new_config_bytes
-                else:
-                    del f['model_config']
-                    f.create_dataset('model_config', data=new_config_bytes)
-
-            try:
-                _models['brain_model'] = tf.keras.models.load_model(temp_path, compile=False)
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-
+            model = Model(inputs=base_model.input, outputs=predictions)
+            
+            # Load weights safely from the h5 file
+            model.load_weights(model_path)
+            _models['brain_model'] = model
+            
     return _models['brain_model']
 
 
